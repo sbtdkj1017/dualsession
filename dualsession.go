@@ -23,6 +23,7 @@
 package dualsession
 
 import (
+	"html"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -68,7 +69,7 @@ func New() martini.Handler {
 			s = v
 		} else { // if session not exist, then new it
 			s = &session{time.Now(), make(map[string]interface{}), false}
-			s.store["username"] = "guest"
+			s.store["userid"] = "guest"
 			// generate sessionKey randomly
 			b := make([]byte, 32)
 			_, err := rand.Read(b)
@@ -83,7 +84,7 @@ func New() martini.Handler {
 			// save session by sessionKey
 			sessions[sessionKey] = s
 			// set cookie
-			cookieUsername := http.Cookie{Name: "username", Value: "guest", Path: "/"}
+			cookieUsername := http.Cookie{Name: "userid", Value: "", Path: "/"}
 			http.SetCookie(w, &cookieUsername)
 			cookieSessionKey := http.Cookie{Name: "sessionKey", Value: sessionKey, Path: "/", HttpOnly: true}
 			http.SetCookie(w, &cookieSessionKey)
@@ -117,7 +118,9 @@ type Session interface {
 	// Set sets the session value associated to the given key.
 	Set(key string, val interface{})
 	// Set as authenticated
-	SetAuthenticated(w http.ResponseWriter, username string)
+	SetAuthenticated(w http.ResponseWriter, userid string)
+	// Get if authenticated
+	Authenticated() bool
 }
 
 type session struct {
@@ -134,10 +137,14 @@ func (s *session) Set(key string, val interface{}) {
 	s.store[key] = val
 }
 
-func (s *session) SetAuthenticated(w http.ResponseWriter, username string) {
+func (s *session) SetAuthenticated(w http.ResponseWriter, userid string) {
 	s.authenticated = true
-	s.store["username"] = username
+	s.store["userid"] = userid
 	// set cookie
-	cookie := http.Cookie{Name: "username", Value: username, Path: "/"}
+	cookie := http.Cookie{Name: "userid", Value: html.EscapeString(userid), Path: "/"}
 	http.SetCookie(w, &cookie)
+}
+
+func (s *session) Authenticated() bool {
+	return s.authenticated
 }
